@@ -1,21 +1,22 @@
 module sccb_controller
 (
-input        clk,
-input        reset,
-input        start,
-input  [7:0] reg_addr,
-input  [7:0] reg_data,
-output       sioc,
-inout        siod,
-output       busy,
-output reg   done,
-output       error
+    input        clk,
+    input        reset,
+    input        start,
+    input  [7:0] reg_addr,
+    input  [7:0] reg_data,
+    output       sioc,
+    inout        siod,
+    output       busy,
+    output reg   done,
+    output       error
 );
 
 reg [7:0] counter;
 reg [3:0] present_state;
 reg [7:0] tx_byte;
 reg [2:0] bit_index;
+reg start_pending;
 
 reg sioc_reg;
 reg siod_drive_low;
@@ -35,9 +36,8 @@ localparam ST_STOP_HIGH  = 4'd10;
 wire tick = (counter == 8'd250);
 
 assign siod = siod_drive_low ? 1'b0 : 1'bz;
-
-assign sioc  = sioc_reg;
-assign busy  = (present_state != ST_IDLE);
+assign sioc = sioc_reg;
+assign busy = (present_state != ST_IDLE);
 assign error = 1'b0;
 
 always @(posedge clk)
@@ -54,16 +54,20 @@ always @(posedge clk)
 begin
     if (reset)
     begin
-        present_state <= ST_IDLE;
-        sioc_reg      <= 1'b1;
+        present_state  <= ST_IDLE;
+        sioc_reg       <= 1'b1;
         siod_drive_low <= 1'b0;
-        tx_byte       <= 8'd0;
-        bit_index     <= 3'd0;
-        done          <= 1'b0;
+        tx_byte        <= 8'd0;
+        bit_index      <= 3'd0;
+        start_pending  <= 1'b0;
+        done           <= 1'b0;
     end
     else
     begin
         done <= 1'b0;
+
+        if (start && present_state == ST_IDLE)
+            start_pending <= 1'b1;
 
         if (tick)
         begin
@@ -71,11 +75,12 @@ begin
 
                 ST_IDLE:
                 begin
-                    sioc_reg <= 1'b1;
+                    sioc_reg       <= 1'b1;
                     siod_drive_low <= 1'b0;
 
-                    if (start)
+                    if (start_pending || start)
                     begin
+                        start_pending <= 1'b0;
                         tx_byte <= {7'h21, 1'b0};
                         present_state <= ST_START;
                     end
@@ -83,20 +88,19 @@ begin
 
                 ST_START:
                 begin
-                    sioc_reg <= 1'b1;
+                    sioc_reg       <= 1'b1;
                     siod_drive_low <= 1'b1;
                     present_state <= ST_START_HOLD;
                 end
 
                 ST_START_HOLD:
                 begin
-                    sioc_reg <= 1'b0;
-                    bit_index <= 3'd7;
+                    sioc_reg       <= 1'b0;
+                    bit_index      <= 3'd7;
                     siod_drive_low <= ~tx_byte[7];
-                    present_state <= ST_DEV_ADDR;
+                    present_state  <= ST_DEV_ADDR;
                 end
 
-                // Transmit device address, MSB first.
                 ST_DEV_ADDR:
                 begin
                     if (!sioc_reg)
@@ -137,7 +141,9 @@ begin
                 ST_REG_ADDR:
                 begin
                     if (!sioc_reg)
+                    begin
                         sioc_reg <= 1'b1;
+                    end
                     else
                     begin
                         sioc_reg <= 1'b0;
@@ -172,7 +178,9 @@ begin
                 ST_REG_DATA:
                 begin
                     if (!sioc_reg)
+                    begin
                         sioc_reg <= 1'b1;
+                    end
                     else
                     begin
                         sioc_reg <= 1'b0;
@@ -221,6 +229,7 @@ begin
                     present_state <= ST_IDLE;
                     sioc_reg <= 1'b1;
                     siod_drive_low <= 1'b0;
+                    start_pending <= 1'b0;
                 end
 
             endcase
