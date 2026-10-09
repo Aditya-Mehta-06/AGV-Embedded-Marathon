@@ -1,6 +1,6 @@
 module buffer_module
 (
-	input pclk,
+	input pclk_vga,
 	input rst_n;
 	input [15:0] pixel_data,
 	input [8:0] addr_col,
@@ -18,7 +18,7 @@ module buffer_module
 	reg byte_toggle;
 
 
-	always @(posedge pclk or negedge rst_n)
+	always @(posedge pclk_vga or negedge rst_n)
 	begin
 
 		if(!rst_n)
@@ -26,6 +26,7 @@ module buffer_module
 			counter_column <= 0;
 			counter_row <= 0;
 			byte_toggle <= 0;
+			rd_en <= 0;
 		end
 
 		else if(!byte_toggle)
@@ -39,6 +40,7 @@ module buffer_module
 		begin
 
 		byte_toggle <= 0;
+		rd_en <= 1'b0;
 
 			if(counter_row <= 7'd119)
 			begin
@@ -71,7 +73,7 @@ module buffer_module
 		begin
 			frame_data = 0;
 		end
-		
+
 		else if(rd)
 		begin
 			frame_data = frame[addr_row][addr_col];
