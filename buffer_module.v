@@ -1,7 +1,7 @@
 module buffer_module
 (
 	input pclk,
-	input reset;
+	input rst_n;
 	input [15:0] pixel_data,
 	input [8:0] addr_col,
 	input [8:0] addr_row,
@@ -18,10 +18,10 @@ module buffer_module
 	reg byte_toggle;
 
 
-	always @(posedge pclk)
+	always @(posedge pclk or negedge rst_n)
 	begin
 
-		if(reset)
+		if(!rst_n)
 		begin
 			counter_column <= 0;
 			counter_row <= 0;
@@ -67,7 +67,12 @@ module buffer_module
 
 	always @(*)
 	begin
-		if(rd)
+		if(!rst_n)
+		begin
+			frame_data = 0;
+		end
+		
+		else if(rd)
 		begin
 			frame_data = frame[addr_row][addr_col];
 		end
