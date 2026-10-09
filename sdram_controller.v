@@ -63,6 +63,41 @@ module sdram_controller #(
     reg [3:0] state, next_state;
     reg [3:0] command;
 
+    reg [31:0] timer_count;
+    reg        timer_done;
+    reg        timer_start;
+    reg [31:0] timer_limit;
+
+    always @(posedge clk or negedge rst_n)
+    begin
+
+        if (!rst_n)
+        begin
+
+            timer_count <= 0;
+            timer_done  <= 0;
+
+        end
+        else if (timer_start)
+        begin
+
+            timer_count <= 0;
+            timer_done  <= 0;
+
+        end
+        else if (!timer_done)
+        begin
+
+            if (timer_count >= timer_limit - 1'b1)
+                timer_done <= 1'b1;
+
+            else
+                timer_count <= timer_count + 1'b1;
+
+        end
+        
+    end
+
     always @(*)
     begin
 
@@ -102,8 +137,10 @@ module sdram_controller #(
 
         endcase
 
-        
+
     end
+
+
 
 
 endmodule
