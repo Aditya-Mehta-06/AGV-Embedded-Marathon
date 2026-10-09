@@ -1,130 +1,231 @@
-module sccb_controller 
+module sccb_controller
 (
-	input clk,
-	input reset,
-	input start,
-	input [7:0] reg_addr,
-	input [7:0] reg_data,
-	output sioc,
-	inout siod,
-	output busy,
-	output done,
-	output error
+input        clk,
+input        reset,
+input        start,
+input  [7:0] reg_addr,
+input  [7:0] reg_data,
+output       sioc,
+inout        siod,
+output       busy,
+output reg   done,
+output       error
 );
 
-	reg [7:0] counter;
-	reg [3:0] present_state, next_state;
-	wire sioc_enable;
+reg [7:0] counter;
+reg [3:0] present_state;
+reg [7:0] tx_byte;
+reg [2:0] bit_index;
 
+reg sioc_reg;
+reg siod_drive_low;
 
-	localparam idle = 4'b0000;
-	localparam start = 4'b0001;
-	localparam dev_addr = 4'b0010;
-	localparam ack1 = 4'b0011;
-	localparam reg_addr = 4'b0100;
-	localparam ack2 = 4'b0101;
-	localparam reg_data = 4'b0110;
-	localparam ack3 = 4'b0111;
-	localparam stop = 4'b1000;
-	localparam done = 4'b1001;
+localparam ST_IDLE       = 4'd0;
+localparam ST_START      = 4'd1;
+localparam ST_START_HOLD = 4'd2;
+localparam ST_DEV_ADDR   = 4'd3;
+localparam ST_ACK1       = 4'd4;
+localparam ST_REG_ADDR   = 4'd5;
+localparam ST_ACK2       = 4'd6;
+localparam ST_REG_DATA   = 4'd7;
+localparam ST_ACK3       = 4'd8;
+localparam ST_STOP_SETUP = 4'd9;
+localparam ST_STOP_HIGH  = 4'd10;
 
+wire tick = (counter == 8'd250);
 
-	always @(posedge clk)
-	begin
-		if(reset)
-		begin
-			counter <= 0;
-		end
-		
-		else if (sioc_enable)
-		begin
-			if(counter == 9'd250)
-			begin
-				counter <= 0;
-				sioc <= ~sioc;
-			end
-			
-			else
-			begin
-				counter <= counter + 1;
-			end
-		end
-		
-		else
-		begin
-			counter <= 0;
-		end
-	end
-	
-	
-	always @(posedge clk)
-	begin
-		if(reset)
-		begin
-			present_state <= idle;
-		end
-		
-		else
-		begin
-			present_state <= next_state;
-		end
-	end
-	
-	always @(*)
-	begin
-	
-	sioc_enable = 0;
-	busy = 0;
-	done = 0;
-	error = 0;
-	sioc = 1;
-	siod = 1'bz;
-	
-	
-		case(present_state)
-		begin
-			idle :
-			begin
-			
-				if (start)
-				begin
-					next_state = start;
-				end
-				
-				else
-				begin
-					next_state = idle;
-				end
-				
-			end
-			
-			start :
-			begin
-				next_state = dev_addr;
-				
-				sioc_enable = 1'b1;
-				
-			end
-			
-			endcase
-		
-	end
-	
+assign siod = siod_drive_low ? 1'b0 : 1'bz;
 
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+assign sioc  = sioc_reg;
+assign busy  = (present_state != ST_IDLE);
+assign error = 1'b0;
+
+always @(posedge clk)
+begin
+    if (reset)
+        counter <= 0;
+    else if (tick)
+        counter <= 0;
+    else
+        counter <= counter + 1'b1;
+end
+
+always @(posedge clk)
+begin
+    if (reset)
+    begin
+        present_state <= ST_IDLE;
+        sioc_reg      <= 1'b1;
+        siod_drive_low <= 1'b0;
+        tx_byte       <= 8'd0;
+        bit_index     <= 3'd0;
+        done          <= 1'b0;
+    end
+    else
+    begin
+        done <= 1'b0;
+
+        if (tick)
+        begin
+            case (present_state)
+
+                ST_IDLE:
+                begin
+                    sioc_reg <= 1'b1;
+                    siod_drive_low <= 1'b0;
+
+                    if (start)
+                    begin
+                        tx_byte <= {7'h21, 1'b0};
+                        present_state <= ST_START;
+                    end
+                end
+
+                ST_START:
+                begin
+                    sioc_reg <= 1'b1;
+                    siod_drive_low <= 1'b1;
+                    present_state <= ST_START_HOLD;
+                end
+
+                ST_START_HOLD:
+                begin
+                    sioc_reg <= 1'b0;
+                    bit_index <= 3'd7;
+                    siod_drive_low <= ~tx_byte[7];
+                    present_state <= ST_DEV_ADDR;
+                end
+
+                // Transmit device address, MSB first.
+                ST_DEV_ADDR:
+                begin
+                    if (!sioc_reg)
+                    begin
+                        sioc_reg <= 1'b1;
+                    end
+                    else
+                    begin
+                        sioc_reg <= 1'b0;
+
+                        if (bit_index == 0)
+                        begin
+                            siod_drive_low <= 1'b0;
+                            present_state <= ST_ACK1;
+                        end
+                        else
+                        begin
+                            bit_index <= bit_index - 1'b1;
+                            siod_drive_low <= ~tx_byte[bit_index - 1'b1];
+                        end
+                    end
+                end
+
+                ST_ACK1:
+                begin
+                    if (!sioc_reg)
+                        sioc_reg <= 1'b1;
+                    else
+                    begin
+                        sioc_reg <= 1'b0;
+                        tx_byte <= reg_addr;
+                        bit_index <= 3'd7;
+                        siod_drive_low <= ~reg_addr[7];
+                        present_state <= ST_REG_ADDR;
+                    end
+                end
+
+                ST_REG_ADDR:
+                begin
+                    if (!sioc_reg)
+                        sioc_reg <= 1'b1;
+                    else
+                    begin
+                        sioc_reg <= 1'b0;
+
+                        if (bit_index == 0)
+                        begin
+                            siod_drive_low <= 1'b0;
+                            present_state <= ST_ACK2;
+                        end
+                        else
+                        begin
+                            bit_index <= bit_index - 1'b1;
+                            siod_drive_low <= ~tx_byte[bit_index - 1'b1];
+                        end
+                    end
+                end
+
+                ST_ACK2:
+                begin
+                    if (!sioc_reg)
+                        sioc_reg <= 1'b1;
+                    else
+                    begin
+                        sioc_reg <= 1'b0;
+                        tx_byte <= reg_data;
+                        bit_index <= 3'd7;
+                        siod_drive_low <= ~reg_data[7];
+                        present_state <= ST_REG_DATA;
+                    end
+                end
+
+                ST_REG_DATA:
+                begin
+                    if (!sioc_reg)
+                        sioc_reg <= 1'b1;
+                    else
+                    begin
+                        sioc_reg <= 1'b0;
+
+                        if (bit_index == 0)
+                        begin
+                            siod_drive_low <= 1'b0;
+                            present_state <= ST_ACK3;
+                        end
+                        else
+                        begin
+                            bit_index <= bit_index - 1'b1;
+                            siod_drive_low <= ~tx_byte[bit_index - 1'b1];
+                        end
+                    end
+                end
+
+                ST_ACK3:
+                begin
+                    if (!sioc_reg)
+                        sioc_reg <= 1'b1;
+                    else
+                    begin
+                        sioc_reg <= 1'b0;
+                        siod_drive_low <= 1'b1;
+                        present_state <= ST_STOP_SETUP;
+                    end
+                end
+
+                ST_STOP_SETUP:
+                begin
+                    sioc_reg <= 1'b1;
+                    present_state <= ST_STOP_HIGH;
+                end
+
+                ST_STOP_HIGH:
+                begin
+                    sioc_reg <= 1'b1;
+                    siod_drive_low <= 1'b0;
+                    done <= 1'b1;
+                    present_state <= ST_IDLE;
+                end
+
+                default:
+                begin
+                    present_state <= ST_IDLE;
+                    sioc_reg <= 1'b1;
+                    siod_drive_low <= 1'b0;
+                end
+
+            endcase
+        end
+    end
+end
 
 endmodule
