@@ -7,9 +7,9 @@ module ov7670_capture
     input         href,
     input [7:0]   camera_data,
 
-    output [15:0] pixel_data,
-    output        pixel_valid,
-    output        frame_start
+    output reg [15:0] pixel_data,
+    output reg       pixel_valid,
+    output reg       frame_start
 );
 
 reg [7:0] byte_high;
@@ -29,7 +29,8 @@ reg byte_toggle;
 		
 		else if(href)
 		begin
-		frame_rate <= 0;
+		frame_start <= 0;
+		pixel_valid <= 0;
 
 			if(!byte_toggle)
 			begin
