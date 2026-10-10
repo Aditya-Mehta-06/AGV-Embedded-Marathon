@@ -61,7 +61,6 @@ module top #(
     wire        fb_we;
     wire [14:0] fb_waddr;
     wire [15:0] fb_wdata;
-    wire [4:0]  frame_cnt;
 
     cam_capture u_cap (
         .pclk      (cam_pclk),
@@ -71,8 +70,7 @@ module top #(
         .din       (cam_data),
         .we        (fb_we),
         .waddr     (fb_waddr),
-        .wdata     (fb_wdata),
-        .frame_cnt (frame_cnt)
+        .wdata     (fb_wdata)
     );
 
     // ------------------------------------------------------------ frame buffer

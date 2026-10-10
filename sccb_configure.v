@@ -41,12 +41,12 @@ always @(*) begin
         case (index)
             5'd0  : begin reg_addr = 8'h12; reg_data = 8'h80; is_reset = 1'b1; end   // COM7: reset
             5'd1  : begin reg_addr = 8'h12; reg_data = 8'h80; is_reset = 1'b1; end   // COM7: reset again
-            5'd2  : begin reg_addr = 8'h11; reg_data = 8'h80; end   // CLKRC: bypass prescaler, PCLK = XCLK
+            5'd2  : begin reg_addr = 8'h11; reg_data = 8'h00; end   // CLKRC: bypass prescaler, PCLK = XCLK
             5'd3  : begin reg_addr = 8'h3A; reg_data = 8'h04; end   // TSLB
             5'd4  : begin reg_addr = 8'h12; reg_data = 8'h04; end   // COM7: VGA + RGB output (was 8'h00 = YUV)
             5'd5  : begin reg_addr = 8'h17; reg_data = 8'h13; end   // HSTART
             5'd6  : begin reg_addr = 8'h18; reg_data = 8'h01; end   // HSTOP
-            5'd7  : begin reg_addr = 8'h32; reg_data = 8'h36; end   // HREF
+            5'd7  : begin reg_addr = 8'h32; reg_data = 8'hB6; end   // HREF
             5'd8  : begin reg_addr = 8'h19; reg_data = 8'h02; end   // VSTART
             5'd9  : begin reg_addr = 8'h1A; reg_data = 8'h7A; end   // VSTOP
             5'd10 : begin reg_addr = 8'h03; reg_data = 8'h0A; end   // VREF

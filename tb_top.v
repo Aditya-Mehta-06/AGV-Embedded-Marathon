@@ -18,7 +18,7 @@
 //   SCCB : START/STOP framing, device address 0x42, every reg/data pair vs the
 //          ROM, 100 kHz SCL, ACK slot released by master, delay after COM7 reset
 //   CAP  : no writes before cam_ready, waits for next VSYNC, 19200 sequential
-//          writes per frame, data == expected RGB565, frame_cnt
+//          writes per frame, data == expected RGB565
 //   FB   : full RAM contents compared with expected image after first frame
 //   VGA  : hsync 96 / period 800, vsync 2 lines / period 525 lines, 640x480
 //          active, blanking is black, every displayed pixel == RAM pixel
@@ -240,12 +240,12 @@ module tb_top;
     initial begin
         exp_addr[ 0] = 8'h12; exp_data[ 0] = 8'h80;
         exp_addr[ 1] = 8'h12; exp_data[ 1] = 8'h80;
-        exp_addr[ 2] = 8'h11; exp_data[ 2] = 8'h80;
+        exp_addr[ 2] = 8'h11; exp_data[ 2] = 8'h00;
         exp_addr[ 3] = 8'h3A; exp_data[ 3] = 8'h04;
         exp_addr[ 4] = 8'h12; exp_data[ 4] = 8'h04;
         exp_addr[ 5] = 8'h17; exp_data[ 5] = 8'h13;
         exp_addr[ 6] = 8'h18; exp_data[ 6] = 8'h01;
-        exp_addr[ 7] = 8'h32; exp_data[ 7] = 8'h36;
+        exp_addr[ 7] = 8'h32; exp_data[ 7] = 8'hB6;
         exp_addr[ 8] = 8'h19; exp_data[ 8] = 8'h02;
         exp_addr[ 9] = 8'h1A; exp_data[ 9] = 8'h7A;
         exp_addr[10] = 8'h03; exp_data[10] = 8'h0A;
@@ -466,16 +466,6 @@ module tb_top;
                     end
                 end
             end
-        end
-    end
-
-    // frame_cnt: first armed VSYNC does not count, each later one adds 1
-    always @(fc_chk_evt) begin
-        #1;
-        if (dut.frame_cnt !== ((vs_since_ready - 1) & 31)) begin
-            err_cap = err_cap + 1;
-            if (err_cap <= 10) $display("[FAIL][CAP] %t frame_cnt = %0d, expected %0d",
-                                        $time, dut.frame_cnt, (vs_since_ready - 1) & 31);
         end
     end
 

@@ -9,8 +9,7 @@ module cam_capture #(
     input  wire [7:0]  din,
     output reg         we        = 1'b0,
     output reg  [14:0] waddr     = 15'd0,
-    output reg  [15:0] wdata     = 16'd0,
-    output reg  [4:0]  frame_cnt = 5'd0
+    output reg  [15:0] wdata     = 16'd0
 );
     reg        en_s1 = 1'b0, en_s2 = 1'b0;
     reg        vsync_d = 1'b0;
@@ -30,13 +29,9 @@ module cam_capture #(
             armed <= 1'b0; 
             phase <= 1'b0; 
             pix_addr <= 15'd0; 
-            frame_cnt <= 5'd0;
         end
         else if (vsync) 
         begin                        // VSYNC high = new frame starting
-            if (!vsync_d && armed) 
-                frame_cnt <= frame_cnt + 1'b1;
-
             armed    <= 1'b1;
             phase    <= 1'b0;
             pix_addr <= 15'd0;
