@@ -35,17 +35,17 @@ localparam ST_STOP_HIGH  = 4'd10;
 
 wire tick = (counter == 8'd250);
 
-assign siod = siod_drive_low ? 1'b0 : 1'bz;
-assign sioc = sioc_reg;
-assign busy = (present_state != ST_IDLE);
+assign siod  = siod_drive_low ? 1'b0 : 1'bz;
+assign sioc  = sioc_reg;
+assign busy  = (present_state != ST_IDLE);
 assign error = 1'b0;
 
 always @(posedge clk)
 begin
     if (reset)
-        counter <= 0;
+        counter <= 8'd0;
     else if (tick)
-        counter <= 0;
+        counter <= 8'd0;
     else
         counter <= counter + 1'b1;
 end
@@ -81,7 +81,7 @@ begin
                     if (start_pending || start)
                     begin
                         start_pending <= 1'b0;
-                        tx_byte <= {7'h21, 1'b0};
+                        tx_byte       <= {7'h21, 1'b0};
                         present_state <= ST_START;
                     end
                 end
@@ -89,8 +89,8 @@ begin
                 ST_START:
                 begin
                     sioc_reg       <= 1'b1;
-                    siod_drive_low <= 1'b1;
-                    present_state <= ST_START_HOLD;
+                    siod_drive_low <= 1'b1; // SIOD pulled low while SIOC is high (START)
+                    present_state  <= ST_START_HOLD;
                 end
 
                 ST_START_HOLD:
@@ -111,14 +111,14 @@ begin
                     begin
                         sioc_reg <= 1'b0;
 
-                        if (bit_index == 0)
+                        if (bit_index == 3'd0)
                         begin
-                            siod_drive_low <= 1'b0;
-                            present_state <= ST_ACK1;
+                            siod_drive_low <= 1'b0; // Release SIOD for 9th bit (Don't care / ACK)
+                            present_state  <= ST_ACK1;
                         end
                         else
                         begin
-                            bit_index <= bit_index - 1'b1;
+                            bit_index      <= bit_index - 1'b1;
                             siod_drive_low <= ~tx_byte[bit_index - 1'b1];
                         end
                     end
@@ -127,14 +127,16 @@ begin
                 ST_ACK1:
                 begin
                     if (!sioc_reg)
+                    begin
                         sioc_reg <= 1'b1;
+                    end
                     else
                     begin
-                        sioc_reg <= 1'b0;
-                        tx_byte <= reg_addr;
-                        bit_index <= 3'd7;
+                        sioc_reg       <= 1'b0;
+                        tx_byte        <= reg_addr;
+                        bit_index      <= 3'd7;
                         siod_drive_low <= ~reg_addr[7];
-                        present_state <= ST_REG_ADDR;
+                        present_state  <= ST_REG_ADDR;
                     end
                 end
 
@@ -148,14 +150,14 @@ begin
                     begin
                         sioc_reg <= 1'b0;
 
-                        if (bit_index == 0)
+                        if (bit_index == 3'd0)
                         begin
-                            siod_drive_low <= 1'b0;
-                            present_state <= ST_ACK2;
+                            siod_drive_low <= 1'b0; // Release SIOD for 9th bit
+                            present_state  <= ST_ACK2;
                         end
                         else
                         begin
-                            bit_index <= bit_index - 1'b1;
+                            bit_index      <= bit_index - 1'b1;
                             siod_drive_low <= ~tx_byte[bit_index - 1'b1];
                         end
                     end
@@ -164,14 +166,16 @@ begin
                 ST_ACK2:
                 begin
                     if (!sioc_reg)
+                    begin
                         sioc_reg <= 1'b1;
+                    end
                     else
                     begin
-                        sioc_reg <= 1'b0;
-                        tx_byte <= reg_data;
-                        bit_index <= 3'd7;
+                        sioc_reg       <= 1'b0;
+                        tx_byte        <= reg_data;
+                        bit_index      <= 3'd7;
                         siod_drive_low <= ~reg_data[7];
-                        present_state <= ST_REG_DATA;
+                        present_state  <= ST_REG_DATA;
                     end
                 end
 
@@ -185,14 +189,14 @@ begin
                     begin
                         sioc_reg <= 1'b0;
 
-                        if (bit_index == 0)
+                        if (bit_index == 3'd0)
                         begin
-                            siod_drive_low <= 1'b0;
-                            present_state <= ST_ACK3;
+                            siod_drive_low <= 1'b0; // Release SIOD for 9th bit
+                            present_state  <= ST_ACK3;
                         end
                         else
                         begin
-                            bit_index <= bit_index - 1'b1;
+                            bit_index      <= bit_index - 1'b1;
                             siod_drive_low <= ~tx_byte[bit_index - 1'b1];
                         end
                     end
@@ -201,35 +205,37 @@ begin
                 ST_ACK3:
                 begin
                     if (!sioc_reg)
+                    begin
                         sioc_reg <= 1'b1;
+                    end
                     else
                     begin
-                        sioc_reg <= 1'b0;
-                        siod_drive_low <= 1'b1;
-                        present_state <= ST_STOP_SETUP;
+                        sioc_reg       <= 1'b0;
+                        siod_drive_low <= 1'b1; // Clamp SIOD low while SIOC is low (prepare for STOP)
+                        present_state  <= ST_STOP_SETUP;
                     end
                 end
 
                 ST_STOP_SETUP:
                 begin
-                    sioc_reg <= 1'b1;
+                    sioc_reg      <= 1'b1; // Raise SIOC while SIOD remains low
                     present_state <= ST_STOP_HIGH;
                 end
 
                 ST_STOP_HIGH:
                 begin
-                    sioc_reg <= 1'b1;
-                    siod_drive_low <= 1'b0;
-                    done <= 1'b1;
-                    present_state <= ST_IDLE;
+                    sioc_reg       <= 1'b1;
+                    siod_drive_low <= 1'b0; // Release SIOD high while SIOC is high (STOP transition)
+                    done           <= 1'b1; // Signal completion on this tick
+                    present_state  <= ST_IDLE;
                 end
 
                 default:
                 begin
-                    present_state <= ST_IDLE;
-                    sioc_reg <= 1'b1;
+                    present_state  <= ST_IDLE;
+                    sioc_reg       <= 1'b1;
                     siod_drive_low <= 1'b0;
-                    start_pending <= 1'b0;
+                    start_pending  <= 1'b0;
                 end
 
             endcase
