@@ -69,9 +69,9 @@ module vga_ctrl (
             vs2 <= vs1;
 
             // stage 3: output registers
-            vga_r  <= (de2 && pix[15:11]>5'd15)? 5'd1 : 5'd0;
-            vga_g  <= (de2 && pix[10:5]>6'd31) ? 6'd1 : 6'd0;
-            vga_b  <= (de2 && pix[4:0]>5'd15)? 5'd1 : 5'd0;
+            vga_r  <= de2 ? pix[15:11] : 5'd0;
+            vga_g  <= de2 ? pix[10:5]  : 6'd0;
+            vga_b  <= de2 ? pix[4:0]   : 5'd0;
             vga_hs <= hs2; 
             vga_vs <= vs2; 
             vga_de <= de2;

@@ -4,7 +4,7 @@ module init_ctrl #(
     parameter WAIT_CYCLES  = 100_000
 )(
     input  wire clk,
-    input  wire rst_n,
+    input  wire rst_n,  //input from system_rst_n
     input  wire sccb_done,
     output reg  cam_reset_n,
     output reg  sccb_start,

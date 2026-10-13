@@ -7,15 +7,16 @@ module cam_capture #(
     input  wire        vsync,
     input  wire        href,
     input  wire [7:0]  din,                 //incomming data every pclk 
+
     output reg         we        = 1'b0,    //indicates that pixel ready to write
     output reg  [14:0] waddr     = 15'd0,   //store address of where to write
     output reg  [15:0] wdata     = 16'd0    //stores what to write
 );
     reg        en_s1 = 1'b0, en_s2 = 1'b0;  //used to sync the enable command
-    reg        vsync_d = 1'b0;  //stored previous state of vsync, used to detect pulse
+    reg        vsync_d = 1'b0;               //stored previous state of vsync, used to detect pulse
     reg        armed = 1'b0;
     reg        phase = 1'b0;
-    reg [7:0]  hi = 8'd0;   //stores the higher byte of pixel data
+    reg [7:0]  hi = 8'd0;           //stores the higher byte of pixel data
     reg [14:0] pix_addr = 15'd0;    //temp storage of where full 16 bits aree joined, then transferred to waddr  
 
     always @(posedge pclk) 
